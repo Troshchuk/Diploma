@@ -5,6 +5,7 @@ import com.kpi.diploma.engine.oql.OQLCompiler;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * @author dtroshchuk
@@ -27,8 +28,18 @@ public class Cache {
         return (T) map;
     }
 
-    public static void createIndex(String name, String region, List<String> fields) {
+    public static void deleteRegion(String name) {
+        regions.remove(name);
+    }
+
+    public static Index createIndex(String name, String region, List<String> fields) {
         indexes.put(name, Index.create(region, fields));
+        return indexes.get(name);
+    }
+
+    public static Index createComplexIndex(String name, Supplier<Map<String, ? extends Object>> funtion) {
+        indexes.put(name, Index.create(funtion));
+        return indexes.get(name);
     }
 
     public static Map<String, Index> getIndexes() {
