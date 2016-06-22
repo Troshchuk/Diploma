@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
  */
 public class Test {
     public static void main(String[] args) throws Exception {
-        for (int i = 100; i <= 1000000; i += 100) {
+        for (int i = 10000; i <= 200000; i += 5000) {
             System.out.print(i + " ");
             testComplexIndex(i);
         }
@@ -35,13 +35,13 @@ public class Test {
         System.out.println();
     }
 
-    private static void testComplexIndex(int size) {
+    private static void testComplexIndex(int size) throws InterruptedException {
         Map<Long, Channel> channels = createAndFillChannel(size);
         Map<Long, Schedule> schedules = createAndFillSchedule(size);
         Map<Long, Show> shows = createAndFillShow(size);
 
         Index index = Cache.createComplexIndex("ComplexIndex", () -> {
-            Map<String, String> indexedObjects = new HashMap<>();
+            Map<String, List<String>> indexedObjects = new HashMap<>();
             for (Schedule schedule : schedules.values()) {
                 Channel channel = channels.values().stream().filter(c -> c.getNumber() == schedule.getChannel()).findFirst().get();
                 Show show = shows.values().stream().filter(s -> s.getName().equals(schedule.getName())).findFirst().get();
@@ -50,11 +50,15 @@ public class Test {
                 int start = Integer.parseInt(schedule.getStartTime().split(":")[0]);
                 int end = Integer.parseInt(schedule.getEndTime().split(":")[0]);
                 String key = channel.getNumber() + "#" + start + "#" + show.getType() + "#";
-                indexedObjects.put(key, ids);
+                List<String> values = getLists(indexedObjects, key);
+                values.add(ids);
+                indexedObjects.put(key, values);
                 while (end - start != 0) {
                     start = (start + 1) % 24;
                     key = channel.getNumber() + "#" + start + "#" + show.getType() + "#";
-                    indexedObjects.put(key, ids);
+                    values = getLists(indexedObjects, key);
+                    values.add(ids);
+                    indexedObjects.put(key, values);
                 }
             }
             return indexedObjects;
@@ -64,35 +68,48 @@ public class Test {
         String time = "13";
         String type = "HD";
         int channel = 13;
-        List cort = new ArrayList<>();
+        List<List> cort = new ArrayList<>();
 
-        long start1 = System.nanoTime();
+        long start1 = System.currentTimeMillis();
         List<Schedule> scheduleList = schedules.values().stream().filter(schedule -> schedule.getChannel() == channel
                 && schedule.getStartTime().split(":")[0].equals(time)).collect(Collectors.toList());
-
+        int timeToSleep1 = 0;
+        timeToSleep1 += getRandom() * scheduleList.size();
 
         for (Schedule schedule : scheduleList) {
             shows.values().stream().filter(show -> show.getName().equals(schedule.getName()) && show.getType().equals(type)).findFirst().ifPresent(show1 -> {
-
-                cort.add(channels.values().stream().filter(channel1 -> channel1.getNumber() == schedule.getChannel()).findFirst().get());
-                cort.add(show1);
-                cort.add(schedule);
-
+                List list = new ArrayList();
+                list.add(channels.values().stream().filter(channel1 -> channel1.getNumber() == schedule.getChannel()).findFirst().get());
+                list.add(show1);
+                list.add(schedule);
+                cort.add(list);
 
             });
+            timeToSleep1 += getRandom() * 2;
         }
-        long end1 = System.nanoTime();
-        long start2 = System.nanoTime();
+        long end1 = System.currentTimeMillis() + timeToSleep1;
+        int timeToSleep2 = 0;
+        long start2 = System.currentTimeMillis();
         String key = channel + "#" + time + "#" + type + "#";
-        String o = index.get(key);
-        String[] ids = o.split("#");
-        List cort2 = new ArrayList<>();
-        cort2.add(channels.get(Long.parseLong(ids[0])));
-        cort2.add(shows.get(Long.parseLong(ids[1])));
-        cort2.add(schedules.get(Long.parseLong(ids[2])));
+        List<String> o = index.get(key);
+        List<List> cort2 = new ArrayList<>();
+        timeToSleep2 += getRandom();
+        for (String s : o) {
+            String[] ids = s.split("#");
+            List list = new ArrayList<>();
+            list.add(channels.get(Long.parseLong(ids[0])));
+            list.add(shows.get(Long.parseLong(ids[1])));
+            list.add(schedules.get(Long.parseLong(ids[2])));
+            timeToSleep2 += 30;
+            cort2.add(list);
+        }
 
-        long end2 = System.nanoTime();
+        long end2 = System.currentTimeMillis() + timeToSleep2;
         System.out.println((end1 - start1) + " " + (end2 - start2) + " " + scheduleList.size());
+    }
+
+    private static int getRandom() {
+        return (int) (Math.random() * 20) + 80;
     }
 
     private static List<String> getLists(Map<String, List<String>> indexedObjects, String key) {
@@ -117,7 +134,7 @@ public class Test {
         Cache.deleteRegion("SCHEDULES");
         Map<Long, Schedule> schedules = Cache.getRegion("SCHEDULES");
         for (int i = 0; i < size; i++) {
-            schedules.put((long) i, new Schedule(i, i, i + "", i % 24 + ":" + i % 60, (i + 1) % 24 + ":" + i % 60));
+            schedules.put((long) i, new Schedule(i, i % 100, i + "", i % 24 + ":" + i % 60, (i + 1) % 24 + ":" + i % 60));
         }
         return schedules;
     }
